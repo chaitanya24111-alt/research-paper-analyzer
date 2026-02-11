@@ -1,0 +1,12 @@
+flask
+PyMuPDF
+pytesseract
+Pillow
+spacy
+nltk
+sumy
+transformers
+torch
+scikit-learn
+fpdf2
+python-dotenv

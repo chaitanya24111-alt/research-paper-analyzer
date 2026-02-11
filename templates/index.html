@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Research Paper Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="image/x-icon">
+</head>
+<body>
+
+  <!-- Reading Progress Bar -->
+  <div id="readingProgressBar" class="reading-progress"></div>
+
+  <!-- Drag Overlay -->
+  <div class="drag-overlay" id="dragOverlay" hidden>
+    <div class="drag-overlay__icon">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+    </div>
+    <p class="drag-overlay__text">Drop your PDF here</p>
+  </div>
+
+  <!-- Header -->
+  <header class="header header--expanded" id="siteHeader">
+    <div class="header-inner">
+      <div class="header-left">
+        <div class="logo-icon" id="logoIcon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2l8.5 4.9v9.8L12 22l-8.5-4.9V6.9z"/>
+            <path d="M3.5 6.9L12 12M12 12l8.5-5.1M12 12v10"/>
+            <path d="M3.5 17.1L12 12M20.5 17.1L12 12"/>
+          </svg>
+        </div>
+        <div class="header-text">
+          <h1 class="header-title">Research Paper Analyzer</h1>
+          <p class="header-tagline" id="headerTagline">AI-powered analysis, completely offline</p>
+        </div>
+      </div>
+      <button class="theme-toggle" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">
+        <span class="theme-toggle__icon-wrapper">
+          <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- ==================== UPLOAD STATE ==================== -->
+    <section class="state state-upload" id="stateUpload">
+      <div class="hero">
+        <div class="hero__bg"></div>
+        <div class="hero__content">
+          <h2 class="hero__title" id="heroTitle">Analyze Research Papers</h2>
+          <p class="hero__tagline" id="heroTagline"></p>
+
+          <div class="upload-card glass-card">
+            <div class="upload-zone" id="uploadZone">
+              <svg class="upload-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <h2 class="upload-title">Drop your PDF here</h2>
+              <p class="upload-subtitle">or click to browse</p>
+              <p class="upload-hint">PDF only, max 25 MB</p>
+              <input type="file" id="fileInput" accept=".pdf" hidden>
+            </div>
+            <!-- Old file-info kept hidden for backward compat -->
+            <div class="file-info" id="fileInfo" hidden>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span id="fileName"></span>
+              <span id="fileSize"></span>
+            </div>
+            <!-- New file preview card -->
+            <div class="file-preview" id="filePreview" hidden>
+              <div class="file-preview__icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span class="file-preview__badge">PDF</span>
+              </div>
+              <div class="file-preview__details">
+                <div class="file-preview__name" id="filePreviewName"></div>
+                <div class="file-preview__size" id="filePreviewSize"></div>
+              </div>
+              <button class="file-preview__remove" id="fileRemoveBtn" type="button" title="Remove file" aria-label="Remove file">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div class="upload-error" id="uploadError" hidden></div>
+            <button class="btn btn-primary btn--ripple" id="analyzeBtn" disabled>Analyze Paper</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== ANALYZING STATE ==================== -->
+    <section class="state state-analyzing" id="stateAnalyzing" hidden>
+      <div class="analyzing-card glass-card">
+        <h2 class="analyzing-title">Analyzing your paper...</h2>
+        <div class="progress-container">
+          <!-- SVG Progress Ring -->
+          <div class="progress-ring-container">
+            <svg width="180" height="180" viewBox="0 0 180 180">
+              <defs>
+                <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#2DD4BF"/>
+                  <stop offset="50%" stop-color="#5EEAD4"/>
+                  <stop offset="100%" stop-color="#818CF8"/>
+                </linearGradient>
+              </defs>
+              <circle class="progress-ring__bg" cx="90" cy="90" r="78"/>
+              <circle class="progress-ring__fill" id="progressRing" cx="90" cy="90" r="78"
+                      stroke-dasharray="490.088" stroke-dashoffset="490.088"
+                      transform="rotate(-90 90 90)"/>
+            </svg>
+            <div class="progress-ring__pct">
+              <span id="progressPct">0</span><span class="progress-ring__pct-sign">%</span>
+            </div>
+          </div>
+          <!-- Hidden old bar for backward compat -->
+          <div class="progress-bar" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <p class="progress-label" id="progressLabel">Preparing...</p>
+          <p class="progress-step" id="progressStep">Step 0/10</p>
+        </div>
+        <!-- Vertical Stepper -->
+        <div class="stepper" id="progressStepper"></div>
+      </div>
+    </section>
+
+    <!-- ==================== RESULTS STATE ==================== -->
+    <section class="state state-results" id="stateResults" hidden>
+      <!-- Stats bar -->
+      <div class="stats-bar glass-card" id="statsBar">
+        <div class="stat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span id="statPages">0 pages</span>
+        </div>
+        <div class="stat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <span id="statWords">0 words</span>
+        </div>
+        <div class="stat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span id="statReadTime">~0 min read</span>
+        </div>
+      </div>
+
+      <div class="results-layout">
+        <!-- Sidebar -->
+        <nav class="sidebar" id="sidebar">
+          <button class="sidebar-btn active" data-section="summary" data-tooltip="Summary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
+            <span class="sidebar-label">Summary</span>
+          </button>
+          <button class="sidebar-btn" data-section="methodology" data-tooltip="Methodology">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            <span class="sidebar-label">Methodology</span>
+          </button>
+          <button class="sidebar-btn" data-section="results_discussion" data-tooltip="Results &amp; Discussion">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            <span class="sidebar-label">Results &amp; Discussion</span>
+          </button>
+          <button class="sidebar-btn" data-section="key_findings" data-tooltip="Key Findings">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <span class="sidebar-label">Key Findings</span>
+          </button>
+          <button class="sidebar-btn" data-section="keywords" data-tooltip="Keywords">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+            <span class="sidebar-label">Keywords</span>
+          </button>
+          <button class="sidebar-btn" data-section="strengths_weaknesses" data-tooltip="Strengths &amp; Weaknesses">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-6 0v4"/><rect x="2" y="9" width="20" height="13" rx="2"/></svg>
+            <span class="sidebar-label">Strengths &amp; Weaknesses</span>
+          </button>
+          <button class="sidebar-btn" data-section="future_scope" data-tooltip="Future Scope">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            <span class="sidebar-label">Future Scope</span>
+          </button>
+          <button class="sidebar-btn" data-section="citations" data-tooltip="Citations">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C5.7 4 7 5.3 7 6.5V14a2 2 0 0 0 2 2h0"/><path d="M16 9h1.5a2.5 2.5 0 0 0 0-5C16.3 4 15 5.3 15 6.5V14a2 2 0 0 1-2 2h0"/></svg>
+            <span class="sidebar-label">Citations</span>
+          </button>
+        </nav>
+
+        <!-- Content panels -->
+        <div class="content-area" id="contentArea">
+          <!-- Summary -->
+          <div class="content-panel glass-card active" data-panel="summary">
+            <div class="panel-header">
+              <h2>Summary</h2>
+              <button class="btn-copy" data-copy-target="summaryText" title="Copy to clipboard">
+                <svg class="icon-copy" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </div>
+            <div class="panel-body" id="summaryText"></div>
+          </div>
+
+          <!-- Methodology -->
+          <div class="content-panel glass-card" data-panel="methodology">
+            <div class="panel-header">
+              <h2>Methodology</h2>
+              <button class="btn-copy" data-copy-target="methodologyText" title="Copy to clipboard">
+                <svg class="icon-copy" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </div>
+            <div class="panel-body" id="methodologyText"></div>
+          </div>
+
+          <!-- Results & Discussion -->
+          <div class="content-panel glass-card" data-panel="results_discussion">
+            <div class="panel-header">
+              <h2>Results &amp; Discussion</h2>
+              <button class="btn-copy" data-copy-target="resultsText" title="Copy to clipboard">
+                <svg class="icon-copy" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </div>
+            <div class="panel-body" id="resultsText"></div>
+          </div>
+
+          <!-- Key Findings -->
+          <div class="content-panel glass-card" data-panel="key_findings">
+            <div class="panel-header">
+              <h2>Key Findings</h2>
+              <button class="btn-copy" data-copy-target="findingsText" title="Copy to clipboard">
+                <svg class="icon-copy" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </div>
+            <div class="panel-body" id="findingsText"></div>
+          </div>
+
+          <!-- Keywords -->
+          <div class="content-panel glass-card" data-panel="keywords">
+            <div class="panel-header">
+              <h2>Keywords &amp; Entities</h2>
+              <button class="btn-copy" data-copy-target="keywordsText" title="Copy to clipboard">
+                <svg class="icon-copy" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </div>
+            <div class="panel-body" id="keywordsText"></div>
+          </div>
+
+          <!-- Strengths & Weaknesses -->
+          <div class="content-panel glass-card" data-panel="strengths_weaknesses">
+            <div class="panel-header">
+              <h2>Strengths &amp; Weaknesses</h2>
+              <button class="btn-copy" data-copy-target="swText" title="Copy to clipboard">
+                <svg class="icon-copy" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </div>
+            <div class="panel-body" id="swText"></div>
+          </div>
+
+          <!-- Future Scope -->
+          <div class="content-panel glass-card" data-panel="future_scope">
+            <div class="panel-header">
+              <h2>Future Research Directions</h2>
+              <button class="btn-copy" data-copy-target="futureText" title="Copy to clipboard">
+                <svg class="icon-copy" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </div>
+            <div class="panel-body" id="futureText"></div>
+          </div>
+
+          <!-- Citations -->
+          <div class="content-panel glass-card" data-panel="citations">
+            <div class="panel-header">
+              <h2>Citations / References</h2>
+              <button class="btn-copy" data-copy-target="citationsText" title="Copy to clipboard">
+                <svg class="icon-copy" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </div>
+            <div class="panel-body" id="citationsText"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="results-actions">
+        <button class="btn btn-primary btn--ripple" id="exportBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export PDF
+        </button>
+        <button class="btn btn-secondary" id="newAnalysisBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          New Analysis
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Export Modal -->
+  <div class="modal-overlay" id="exportModal" hidden>
+    <div class="modal modal--export">
+      <div class="modal-header">
+        <h3>Export PDF Report</h3>
+        <button class="modal-close" id="modalClose">&times;</button>
+      </div>
+      <div class="modal-body--split">
+        <div class="modal-body__controls">
+          <p>Select sections to include:</p>
+          <!-- Toggle switches (hidden checkboxes for value compat) -->
+          <label class="toggle-switch">
+            <input type="checkbox" value="summary" checked>
+            <span class="toggle-switch__slider"></span>
+            Summary
+          </label>
+          <label class="toggle-switch">
+            <input type="checkbox" value="methodology" checked>
+            <span class="toggle-switch__slider"></span>
+            Methodology
+          </label>
+          <label class="toggle-switch">
+            <input type="checkbox" value="results_discussion" checked>
+            <span class="toggle-switch__slider"></span>
+            Results &amp; Discussion
+          </label>
+          <label class="toggle-switch">
+            <input type="checkbox" value="key_findings" checked>
+            <span class="toggle-switch__slider"></span>
+            Key Findings
+          </label>
+          <label class="toggle-switch">
+            <input type="checkbox" value="keywords" checked>
+            <span class="toggle-switch__slider"></span>
+            Keywords &amp; Entities
+          </label>
+          <label class="toggle-switch">
+            <input type="checkbox" value="strengths_weaknesses" checked>
+            <span class="toggle-switch__slider"></span>
+            Strengths &amp; Weaknesses
+          </label>
+          <label class="toggle-switch">
+            <input type="checkbox" value="future_scope" checked>
+            <span class="toggle-switch__slider"></span>
+            Future Research Directions
+          </label>
+          <label class="toggle-switch">
+            <input type="checkbox" value="citations" checked>
+            <span class="toggle-switch__slider"></span>
+            Citations
+          </label>
+        </div>
+        <div class="modal-body__preview">
+          <div class="modal-body__preview-title">Preview</div>
+          <div id="exportPreviewContent"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="modalCancel">Cancel</button>
+        <button class="btn btn-primary btn--ripple" id="modalExport">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download PDF
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Bottom Sheet (mobile navigation) -->
+  <div class="bottom-sheet" id="bottomSheet">
+    <div class="bottom-sheet__handle"></div>
+    <div class="bottom-sheet__tabs" id="bottomSheetTabs"></div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>Research Paper Analyzer &mdash; AI-powered, fully offline</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
