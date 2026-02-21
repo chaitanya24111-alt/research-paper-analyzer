@@ -188,6 +188,56 @@ SECTION_TITLES = {
 }
 
 
+def _clean(text: str) -> str:
+    """Replace Unicode characters that Helvetica (Latin-1) cannot render."""
+    if not text:
+        return ""
+    _map = {
+        "\u2022": "-",    # bullet •
+        "\u2023": "-",    # triangular bullet ‣
+        "\u2013": "-",    # en dash –
+        "\u2014": "--",   # em dash —
+        "\u2015": "--",   # horizontal bar ―
+        "\u2018": "'",    # left single quote '
+        "\u2019": "'",    # right single quote '
+        "\u201A": ",",    # single low-9 quotation ‚
+        "\u201C": '"',    # left double quote "
+        "\u201D": '"',    # right double quote "
+        "\u201E": '"',    # double low-9 quotation „
+        "\u2026": "...",  # ellipsis …
+        "\u00B7": "-",    # middle dot ·
+        "\u2212": "-",    # minus sign −
+        "\u00D7": "x",    # multiplication ×
+        "\u00F7": "/",    # division ÷
+        "\u2264": "<=",   # ≤
+        "\u2265": ">=",   # ≥
+        "\u2248": "~=",   # ≈
+        "\u00B1": "+/-",  # ±
+        "\u00B2": "^2",   # superscript 2 ²
+        "\u00B3": "^3",   # superscript 3 ³
+        "\u2192": "->",   # →
+        "\u2190": "<-",   # ←
+        "\u2194": "<->",  # ↔
+        "\u00A0": " ",    # non-breaking space
+        "\u00AD": "-",    # soft hyphen ­
+        "\u2032": "'",    # prime ′
+        "\u2033": '"',    # double prime ″
+        "\u03B1": "alpha",
+        "\u03B2": "beta",
+        "\u03B3": "gamma",
+        "\u03B4": "delta",
+        "\u03B5": "epsilon",
+        "\u03BB": "lambda",
+        "\u03BC": "mu",
+        "\u03C3": "sigma",
+        "\u03C9": "omega",
+    }
+    for char, replacement in _map.items():
+        text = text.replace(char, replacement)
+    # Catch any remaining non-Latin-1 characters with a safe fallback
+    return text.encode("latin-1", errors="replace").decode("latin-1")
+
+
 def _build_export_pdf(results: dict, sections: list[str], output_path: str):
     """Generate a PDF report using fpdf2."""
     from fpdf import FPDF
@@ -224,7 +274,7 @@ def _build_export_pdf(results: dict, sections: list[str], output_path: str):
         pdf.set_font("Helvetica", "B", 14)
         pdf.set_text_color(99, 102, 241)
         pdf.ln(4)
-        pdf.cell(0, 10, title, new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(0, 10, _clean(title), new_x="LMARGIN", new_y="NEXT")
         pdf.ln(2)
 
         # Section body
@@ -232,42 +282,42 @@ def _build_export_pdf(results: dict, sections: list[str], output_path: str):
         pdf.set_text_color(30, 30, 30)
 
         if section_key == "summary":
-            pdf.multi_cell(0, 6, results.get("summary", "N/A"))
+            pdf.multi_cell(0, 6, _clean(results.get("summary", "N/A")))
 
         elif section_key == "methodology":
-            pdf.multi_cell(0, 6, results.get("methodology", "N/A"))
+            pdf.multi_cell(0, 6, _clean(results.get("methodology", "N/A")))
 
         elif section_key == "results_discussion":
-            pdf.multi_cell(0, 6, results.get("results_discussion", "N/A"))
+            pdf.multi_cell(0, 6, _clean(results.get("results_discussion", "N/A")))
 
         elif section_key == "key_findings":
             for finding in results.get("key_findings", []):
-                pdf.cell(6, 6, chr(8226))  # bullet
-                pdf.multi_cell(0, 6, " " + finding)
+                pdf.cell(6, 6, "-")  # plain ASCII bullet (no Unicode)
+                pdf.multi_cell(0, 6, " " + _clean(finding))
 
         elif section_key == "keywords":
             kws = results.get("keywords", [])
-            kw_text = ", ".join(kw["keyword"] for kw in kws)
+            kw_text = ", ".join(_clean(kw["keyword"]) for kw in kws)
             pdf.multi_cell(0, 6, kw_text or "No keywords found.")
 
         elif section_key == "strengths_weaknesses":
             sw = results.get("strengths_weaknesses", {})
-            pdf.multi_cell(0, 6, sw.get("analysis", "N/A"))
+            pdf.multi_cell(0, 6, _clean(sw.get("analysis", "N/A")))
             if sw.get("disclaimer"):
                 pdf.ln(3)
                 pdf.set_font("Helvetica", "I", 9)
                 pdf.set_text_color(120, 100, 0)
-                pdf.multi_cell(0, 5, "Note: " + sw["disclaimer"])
+                pdf.multi_cell(0, 5, "Note: " + _clean(sw["disclaimer"]))
                 pdf.set_text_color(30, 30, 30)
 
         elif section_key == "future_scope":
             fs = results.get("future_scope", {})
-            pdf.multi_cell(0, 6, fs.get("analysis", "N/A"))
+            pdf.multi_cell(0, 6, _clean(fs.get("analysis", "N/A")))
             if fs.get("disclaimer"):
                 pdf.ln(3)
                 pdf.set_font("Helvetica", "I", 9)
                 pdf.set_text_color(120, 100, 0)
-                pdf.multi_cell(0, 5, "Note: " + fs["disclaimer"])
+                pdf.multi_cell(0, 5, "Note: " + _clean(fs["disclaimer"]))
                 pdf.set_text_color(30, 30, 30)
 
         elif section_key == "citations":
@@ -283,10 +333,10 @@ def _build_export_pdf(results: dict, sections: list[str], output_path: str):
                 for idx, c in enumerate(cites, 1):
                     row = [
                         str(idx),
-                        (c.get("author") or "-")[:25],
-                        (c.get("title") or "-")[:50],
-                        c.get("year") or "-",
-                        c.get("style") or "-",
+                        _clean((c.get("author") or "-")[:25]),
+                        _clean((c.get("title") or "-")[:50]),
+                        _clean(c.get("year") or "-"),
+                        _clean(c.get("style") or "-"),
                     ]
                     for i, val in enumerate(row):
                         pdf.cell(col_w[i], 6, val, border=1)
