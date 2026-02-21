@@ -291,9 +291,9 @@ def _build_export_pdf(results: dict, sections: list[str], output_path: str):
             pdf.multi_cell(0, 6, _clean(results.get("results_discussion", "N/A")))
 
         elif section_key == "key_findings":
-            for finding in results.get("key_findings", []):
-                pdf.cell(6, 6, "-")  # plain ASCII bullet (no Unicode)
-                pdf.multi_cell(0, 6, " " + _clean(finding))
+            for i, finding in enumerate(results.get("key_findings", []), 1):
+                pdf.multi_cell(0, 6, f"{i}. " + _clean(finding))
+                pdf.ln(1)
 
         elif section_key == "keywords":
             kws = results.get("keywords", [])
