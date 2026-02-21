@@ -117,8 +117,8 @@ def _filter_sentences(text: str, keywords: list[str], nlp, top_n: int = 15) -> s
 
 def generate_summary(text: str) -> str:
     """Main paper summary (extractive then BART abstractive)."""
-    extractive = extractive_summary(text, sentence_count=12)
-    return _bart_summarize(extractive, max_len=300, min_len=100)
+    extractive = extractive_summary(text, sentence_count=15)
+    return _bart_summarize(extractive, max_len=500, min_len=180)
 
 
 def extract_methodology(text: str, nlp) -> str:
@@ -127,11 +127,11 @@ def extract_methodology(text: str, nlp) -> str:
     # Try explicit methodology section first
     for key in ("methodology", "methods", "method", "experimental", "experiments"):
         if key in sections and len(sections[key]) > 100:
-            return _bart_summarize(sections[key], max_len=250, min_len=60)
+            return _bart_summarize(sections[key], max_len=400, min_len=120)
     # Fallback: keyword-based sentence extraction
-    relevant = _filter_sentences(text, METHOD_KEYWORDS, nlp)
+    relevant = _filter_sentences(text, METHOD_KEYWORDS, nlp, top_n=20)
     if len(relevant) > 100:
-        return _bart_summarize(relevant, max_len=250, min_len=60)
+        return _bart_summarize(relevant, max_len=400, min_len=120)
     return "Methodology section could not be identified in this paper."
 
 
