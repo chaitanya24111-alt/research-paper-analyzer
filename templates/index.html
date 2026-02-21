@@ -40,7 +40,7 @@
         </div>
         <div class="header-text">
           <h1 class="header-title">Research Paper Analyzer</h1>
-          <p class="header-tagline" id="headerTagline">AI-powered analysis, completely offline</p>
+          <p class="header-tagline" id="headerTagline">Analysis, completely offline</p>
         </div>
       </div>
       <button class="theme-toggle" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">
@@ -179,6 +179,10 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             <span class="sidebar-label">Key Findings</span>
           </button>
+          <button class="sidebar-btn" data-section="evaluation" data-tooltip="Model Evaluation">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+            <span class="sidebar-label">Model Evaluation</span>
+          </button>
           <button class="sidebar-btn" data-section="keywords" data-tooltip="Keywords">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
             <span class="sidebar-label">Keywords</span>
@@ -245,6 +249,18 @@
               </button>
             </div>
             <div class="panel-body" id="findingsText"></div>
+          </div>
+
+          <!-- Model Evaluation -->
+          <div class="content-panel glass-card" data-panel="evaluation">
+            <div class="panel-header">
+              <h2>Model Evaluation</h2>
+              <button class="btn-copy" data-copy-target="evaluationText" title="Copy to clipboard">
+                <svg class="icon-copy" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </div>
+            <div class="panel-body" id="evaluationText"></div>
           </div>
 
           <!-- Keywords -->
@@ -390,7 +406,7 @@
 
   <!-- Footer -->
   <footer class="footer">
-    <p>Research Paper Analyzer &mdash; AI-powered, fully offline</p>
+    <p>Research Paper Analyzer &mdash; fully offline</p>
   </footer>
 
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>

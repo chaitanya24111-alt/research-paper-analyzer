@@ -11,6 +11,7 @@ import spacy
 from .extractor import extract_text_from_pdf
 from .summarizer import (
     generate_summary,
+    extractive_summary,
     extract_methodology,
     extract_results,
     extract_key_findings,
@@ -19,8 +20,10 @@ from .summarizer import (
 )
 from .keywords import extract_keywords
 from .citations import parse_citations
+from .evaluator import evaluate_summaries, evaluate_keywords
+from .embedder import embed_findings
 
-TOTAL_STEPS = 10
+TOTAL_STEPS = 12
 
 # spaCy model loaded once
 _nlp = None
@@ -80,8 +83,9 @@ def analyze_paper(pdf_path: str) -> Generator[str, None, None]:
         yield _progress(3, "Extracting keywords and entities...")
         results["keywords"] = extract_keywords(text, nlp)
 
-        # Step 4: Summary generation
+        # Step 4: Summary generation (capture LSA intermediate for evaluation)
         yield _progress(4, "Generating paper summary...")
+        lsa_intermediate = extractive_summary(text, sentence_count=12)
         results["summary"] = generate_summary(text)
 
         # Step 5: Methodology extraction
@@ -107,6 +111,18 @@ def analyze_paper(pdf_path: str) -> Generator[str, None, None]:
         # Step 10: Citation parsing
         yield _progress(10, "Parsing citations...")
         results["citations"] = parse_citations(text)
+
+        # Step 11: Model evaluation (ROUGE + keyword comparison)
+        yield _progress(11, "Evaluating model performance...")
+        eval_result = evaluate_summaries(text, lsa_intermediate, results["summary"])
+        kw_eval = evaluate_keywords(results.get("keywords", []))
+        if isinstance(eval_result, dict):
+            eval_result["keyword_eval"] = kw_eval
+        results["evaluation"] = eval_result
+
+        # Step 12: Semantic coherence of findings
+        yield _progress(12, "Computing semantic coherence...")
+        results["embeddings"] = embed_findings(results.get("key_findings", []))
 
         # Final event – complete results
         yield f"data: {json.dumps({'step': TOTAL_STEPS, 'total': TOTAL_STEPS, 'label': 'Analysis complete!', 'results': results})}\n\n"

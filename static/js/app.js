@@ -180,7 +180,7 @@
 
   // Run typewriter on page load
   setTimeout(function () {
-    typewriterEffect(heroTagline, "AI-powered analysis, completely offline", 45);
+    typewriterEffect(heroTagline, "Analysis, completely offline", 45);
   }, 500);
 
   // ============================================================
@@ -392,7 +392,7 @@
     }
     progressFill.style.width = "0%";
     progressLabel.textContent = "Starting analysis...";
-    progressStep.textContent = "Step 0/10";
+    progressStep.textContent = "Step 0/12";
 
     // Clear stepper
     if (progressStepper) {
@@ -642,6 +642,9 @@
       document.getElementById("citationsText").innerHTML = "<p>No citations detected.</p>";
     }
 
+    // Model Evaluation
+    renderEvaluation(r.evaluation, r.embeddings);
+
     // Activate first section
     activateSection("summary");
 
@@ -650,6 +653,158 @@
 
     // Update export preview
     updateExportPreview();
+  }
+
+  // ============================================================
+  // Render Evaluation Panel
+  // ============================================================
+
+  function renderEvaluation(ev, emb) {
+    var el = document.getElementById("evaluationText");
+    if (!el) return;
+
+    var html = "";
+
+    // ── ROUGE Section ────────────────────────────────────────
+    html += '<div class="eval-section">';
+    html += '<p class="eval-section__title">ROUGE Score Comparison &mdash; LSA vs BART</p>';
+
+    if (!ev || !ev.available) {
+      var errMsg = (ev && ev.error) ? ev.error : "Evaluation data unavailable.";
+      html += '<div class="eval-unavailable">' + escHtml(errMsg) + '</div>';
+    } else {
+      // Reference source chip
+      var chipClass = ev.reference_source === "abstract" ? "" : " ref-source-chip--mutual";
+      var chipLabel = ev.reference_source === "abstract"
+        ? "Reference: paper abstract"
+        : "Reference: mutual (no abstract detected)";
+      html += '<span class="ref-source-chip' + chipClass + '">' + escHtml(chipLabel) + '</span>';
+
+      // Winner badge
+      var winner = ev.winner || "tie";
+      var badgeClass = "eval-winner-badge--" + winner;
+      var badgeLabel = winner === "bart"
+        ? "&#x2605; BART wins on ROUGE-1 F1"
+        : winner === "lsa"
+          ? "&#x2605; LSA wins on ROUGE-1 F1"
+          : "Tie — equal ROUGE-1 F1";
+      html += '<div class="eval-winner-badge ' + badgeClass + '">' + badgeLabel + '</div>';
+
+      // ROUGE table
+      var metrics = ["rouge1", "rouge2", "rougeL"];
+      var metricLabels = { rouge1: "ROUGE-1", rouge2: "ROUGE-2", rougeL: "ROUGE-L" };
+
+      html += '<table class="rouge-table"><thead><tr>';
+      html += '<th>Metric</th>';
+      html += '<th>LSA F1</th><th class="rouge-bar-cell">LSA bar</th>';
+      html += '<th>BART F1</th><th class="rouge-bar-cell">BART bar</th>';
+      html += '</tr></thead><tbody>';
+
+      for (var mi = 0; mi < metrics.length; mi++) {
+        var mk = metrics[mi];
+        var lsaF1  = ((ev.lsa_scores  || {})[mk] || {}).fmeasure || 0;
+        var bartF1 = ((ev.bart_scores || {})[mk] || {}).fmeasure || 0;
+        var lsaPct  = Math.round(lsaF1  * 100);
+        var bartPct = Math.round(bartF1 * 100);
+
+        html += '<tr>';
+        html += '<td>' + metricLabels[mk] + '</td>';
+        html += '<td><code>' + lsaF1.toFixed(3) + '</code></td>';
+        html += '<td class="rouge-bar-cell"><div class="rouge-bar-track"><div class="rouge-bar-fill rouge-bar-fill--lsa" style="width:' + lsaPct + '%"></div></div></td>';
+        html += '<td><code>' + bartF1.toFixed(3) + '</code></td>';
+        html += '<td class="rouge-bar-cell"><div class="rouge-bar-track"><div class="rouge-bar-fill rouge-bar-fill--bart" style="width:' + bartPct + '%"></div></div></td>';
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+
+      if (ev.interpretation) {
+        html += '<p class="eval-interpretation">' + escHtml(ev.interpretation) + '</p>';
+      }
+    }
+    html += '</div>';
+
+    // ── Keyword Comparison ──────────────────────────────────
+    var kwe = ev && ev.keyword_eval;
+    html += '<div class="eval-section">';
+    html += '<p class="eval-section__title">Keyword Method Complementarity</p>';
+
+    if (kwe && kwe.tfidf_count !== undefined) {
+      html += '<div class="kw-comparison">';
+      html += '<div class="kw-box kw-box--tfidf">';
+      html += '<div class="kw-box__label">TF-IDF</div>';
+      html += '<div class="kw-box__count">' + kwe.tfidf_count + '</div>';
+      html += '</div>';
+      html += '<div class="kw-box kw-box--ner">';
+      html += '<div class="kw-box__label">NER Entities</div>';
+      html += '<div class="kw-box__count">' + kwe.ner_count + '</div>';
+      html += '</div>';
+      html += '</div>';
+
+      var compPct = Math.round((kwe.complementarity || 0) * 100);
+      html += '<div class="kw-overlap-row">';
+      html += '<span>Complementarity</span>';
+      html += '<div class="kw-overlap-track"><div class="kw-overlap-bar" style="width:' + compPct + '%"></div></div>';
+      html += '<span><strong>' + compPct + '%</strong></span>';
+      html += '</div>';
+
+      if (kwe.interpretation) {
+        html += '<p class="eval-interpretation">' + escHtml(kwe.interpretation) + '</p>';
+      }
+    } else {
+      html += '<div class="eval-unavailable">Keyword evaluation data unavailable.</div>';
+    }
+    html += '</div>';
+
+    // ── Semantic Coherence ──────────────────────────────────
+    html += '<div class="eval-section">';
+    html += '<p class="eval-section__title">Semantic Coherence of Key Findings</p>';
+
+    if (!emb || !emb.available) {
+      var embErr = (emb && emb.error) ? emb.error : "Embedding data unavailable.";
+      html += '<div class="eval-unavailable">' + escHtml(embErr) + '</div>';
+    } else {
+      var label = emb.coherence_label || "medium";
+      var scoreClass = "coherence-score--" + label;
+      var labelClass = "coherence-label--" + label;
+      var labelText  = label.charAt(0).toUpperCase() + label.slice(1) + " coherence";
+
+      html += '<div class="coherence-display">';
+      html += '<div class="coherence-score ' + scoreClass + '">' + (emb.avg_coherence || 0).toFixed(3) + '</div>';
+      html += '<div class="coherence-meta">';
+      html += '<div class="coherence-label ' + labelClass + '">' + escHtml(labelText) + '</div>';
+      if (emb.most_central_text) {
+        html += '<div class="coherence-central">&ldquo;' + escHtml(emb.most_central_text.substring(0, 120)) + '&hellip;&rdquo;</div>';
+      }
+      html += '</div>';
+      html += '</div>';
+
+      if (emb.clusters && emb.clusters.length > 0) {
+        html += '<p class="eval-interpretation">';
+        html += escHtml(
+          emb.clusters.length + ' topic cluster' + (emb.clusters.length !== 1 ? 's' : '') +
+          ' detected among ' + (emb.centrality_scores ? emb.centrality_scores.length : '?') +
+          ' findings at a 0.70 similarity threshold.'
+        );
+        html += '</p>';
+      }
+
+      if (emb.note) {
+        html += '<p class="eval-interpretation">' + escHtml(emb.note) + '</p>';
+      }
+    }
+    html += '</div>';
+
+    // ── Methodology Note ────────────────────────────────────
+    html += '<div class="methodology-note">';
+    html += '<strong>Methodology note:</strong> ROUGE (Recall-Oriented Understudy for Gisting Evaluation) ';
+    html += 'measures n-gram overlap between generated and reference text. ';
+    html += 'Higher ROUGE does not necessarily mean a more <em>accurate</em> or <em>readable</em> summary — ';
+    html += 'extractive methods can score well by copying verbatim sentences. ';
+    html += 'Semantic coherence uses <strong>all-MiniLM-L6-v2</strong> sentence embeddings ';
+    html += '(cosine similarity) to measure how topically consistent the key findings are with each other.';
+    html += '</div>';
+
+    el.innerHTML = html;
   }
 
   // ============================================================
@@ -894,7 +1049,7 @@
 
     // Re-trigger typewriter
     setTimeout(function () {
-      typewriterEffect(heroTagline, "AI-powered analysis, completely offline", 45);
+      typewriterEffect(heroTagline, "Analysis, completely offline", 45);
     }, 300);
   });
 

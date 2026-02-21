@@ -180,6 +180,7 @@ SECTION_TITLES = {
     "methodology": "Methodology",
     "results_discussion": "Results & Discussion",
     "key_findings": "Key Findings",
+    "evaluation": "Model Evaluation",
     "keywords": "Keywords & Entities",
     "strengths_weaknesses": "Strengths & Weaknesses",
     "future_scope": "Future Research Directions",

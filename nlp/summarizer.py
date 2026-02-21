@@ -70,7 +70,7 @@ def _get_bart():
     return _bart_pipeline
 
 
-def _extractive_summary(text: str, sentence_count: int = 10) -> str:
+def extractive_summary(text: str, sentence_count: int = 10) -> str:
     """Sumy LSA extractive summary."""
     parser = PlaintextParser.from_string(text, Tokenizer(LANG))
     stemmer = Stemmer(LANG)
@@ -117,7 +117,7 @@ def _filter_sentences(text: str, keywords: list[str], nlp, top_n: int = 15) -> s
 
 def generate_summary(text: str) -> str:
     """Main paper summary (extractive then BART abstractive)."""
-    extractive = _extractive_summary(text, sentence_count=12)
+    extractive = extractive_summary(text, sentence_count=12)
     return _bart_summarize(extractive, max_len=300, min_len=100)
 
 
