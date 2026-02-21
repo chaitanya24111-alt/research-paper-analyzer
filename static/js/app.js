@@ -41,6 +41,7 @@
   const statPages = document.getElementById("statPages");
   const statWords = document.getElementById("statWords");
   const statReadTime = document.getElementById("statReadTime");
+  const statCitations = document.getElementById("statCitations");
 
   const exportBtn = document.getElementById("exportBtn");
   const newAnalysisBtn = document.getElementById("newAnalysisBtn");
@@ -120,26 +121,7 @@
   // Header scroll shrink
   // ============================================================
 
-  function initHeaderScroll() {
-    let ticking = false;
-    window.addEventListener("scroll", function () {
-      if (!ticking) {
-        window.requestAnimationFrame(function () {
-          if (window.scrollY > 40) {
-            siteHeader.classList.remove("header--expanded");
-            siteHeader.classList.add("header--compact");
-          } else {
-            siteHeader.classList.remove("header--compact");
-            siteHeader.classList.add("header--expanded");
-          }
-          ticking = false;
-        });
-        ticking = true;
-      }
-    });
-  }
-
-  initHeaderScroll();
+  // Header scroll handled by sticky Tailwind class (no shrink needed).
 
   function initReadingProgress() {
     var bar = document.getElementById("readingProgressBar");
@@ -575,7 +557,8 @@
     var info = r.doc_info || {};
     statPages.textContent = (info.page_count || 0) + " pages";
     statWords.textContent = (info.word_count || 0).toLocaleString() + " words";
-    statReadTime.textContent = "~" + (info.reading_time_min || 0) + " min read";
+    statReadTime.textContent = "~" + (info.reading_time_min || 0) + " min";
+    if (statCitations) statCitations.textContent = (r.citations || []).length + " refs";
 
     // Summary — rich formatted
     document.getElementById("summaryText").innerHTML = formatParagraphRich(r.summary || "N/A");
