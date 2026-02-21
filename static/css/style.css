@@ -4,6 +4,11 @@
    components Tailwind can't generate at runtime.
    ============================================================= */
 
+/* Tailwind utility classes (e.g. flex, block) override the
+   browser's [hidden] display:none. This rule restores correct
+   behaviour so JS can safely toggle .hidden on any element. */
+[hidden] { display: none !important; }
+
 /* ── Reading progress bar ─────────────────────────────────── */
 .reading-progress {
   position: fixed;
