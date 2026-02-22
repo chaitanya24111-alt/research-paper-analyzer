@@ -1,19 +1,21 @@
-"""Summarization: extractive (sumy LSA) + abstractive (BART)."""
+"""Summarization: extractive (sumy LSA) + abstractive (Ollama llama3.1:8b)."""
 
 from __future__ import annotations
 
 import re
 from typing import Optional
 
-import spacy
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
 from sumy.nlp.stemmers import Stemmer
 from sumy.utils import get_stop_words
 
-# BART model loaded lazily on first call
-_bart_pipeline = None
+import ollama
+
+# Switch to fine-tuned model if available
+# Change to "research-analyzer-finetuned" after running fine_tune/
+OLLAMA_MODEL = "research-analyzer"  # or "research-analyzer-finetuned"
 
 LANG = "english"
 
@@ -42,32 +44,26 @@ SECTION_HEADERS = re.compile(
 )
 
 
-def _get_bart():
-    """Lazy-load BART summarization pipeline."""
-    global _bart_pipeline
-    if _bart_pipeline is None:
-        from transformers import BartForConditionalGeneration, BartTokenizer
-        
-        class BartWrapper:
-            def __init__(self):
-                self.model = BartForConditionalGeneration.from_pretrained("facebook/bart-large-cnn")
-                self.tokenizer = BartTokenizer.from_pretrained("facebook/bart-large-cnn")
-                
-            def __call__(self, text, max_length=300, min_length=80, do_sample=False):
-                inputs = self.tokenizer(text, max_length=1024, truncation=True, return_tensors="pt")
-                summary_ids = self.model.generate(
-                    inputs["input_ids"],
-                    max_length=max_length,
-                    min_length=min_length,
-                    do_sample=do_sample,
-                    num_beams=4,
-                    early_stopping=True
-                )
-                summary = self.tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-                return [{"summary_text": summary}]
-        
-        _bart_pipeline = BartWrapper()
-    return _bart_pipeline
+def _ollama_summarize(text: str, system_prompt: str, user_prompt: str) -> str:
+    """Call Ollama chat API with the given system and user prompts."""
+    words = text.split()
+    truncated = " ".join(words[:3000])
+    try:
+        response = ollama.chat(
+            model=OLLAMA_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user",   "content": user_prompt.format(text=truncated)},
+            ],
+            options={"temperature": 0.3, "top_p": 0.9, "num_predict": 600},
+        )
+        return response["message"]["content"].strip()
+    except Exception as e:
+        return (
+            f"[Ollama error: {e}. "
+            "Ensure Ollama is running (ollama serve) and "
+            "llama3.1:8b is pulled (ollama pull llama3.1:8b).]"
+        )
 
 
 def extractive_summary(text: str, sentence_count: int = 10) -> str:
@@ -78,17 +74,6 @@ def extractive_summary(text: str, sentence_count: int = 10) -> str:
     summarizer.stop_words = get_stop_words(LANG)
     sentences = summarizer(parser.document, sentence_count)
     return " ".join(str(s) for s in sentences)
-
-
-def _bart_summarize(text: str, max_len: int = 300, min_len: int = 80) -> str:
-    """BART abstractive summarization with input truncation."""
-    bart = _get_bart()
-    # BART max input is 1024 tokens; roughly 4 chars/token → keep ~3500 chars
-    truncated = text[:3500]
-    if len(truncated.strip()) < 60:
-        return text.strip()
-    result = bart(truncated, max_length=max_len, min_length=min_len, do_sample=False)
-    return result[0]["summary_text"]
 
 
 def _detect_sections(text: str) -> dict[str, str]:
@@ -116,42 +101,104 @@ def _filter_sentences(text: str, keywords: list[str], nlp, top_n: int = 15) -> s
 
 
 def generate_summary(text: str) -> str:
-    """Main paper summary (extractive then BART abstractive)."""
-    extractive = extractive_summary(text, sentence_count=15)
-    return _bart_summarize(extractive, max_len=500, min_len=180)
+    """Main paper summary via Ollama (llama3.1:8b)."""
+    system = (
+        "You are a research assistant writing clear summaries for CS students. "
+        "Write in complete sentences, never bullet points."
+    )
+    user = (
+        "Write a 5-6 sentence summary covering: the problem being solved, "
+        "the proposed solution, the key innovation, and the main result "
+        "with numbers if available. Use plain English and briefly explain "
+        "any technical terms.\n\nPaper:\n{text}"
+    )
+    return _ollama_summarize(text, system, user)
 
 
 def extract_methodology(text: str, nlp) -> str:
-    """Extract and summarize methodology section."""
+    """Extract and summarize methodology section via Ollama."""
     sections = _detect_sections(text)
     # Try explicit methodology section first
+    source = ""
     for key in ("methodology", "methods", "method", "experimental", "experiments"):
         if key in sections and len(sections[key]) > 100:
-            return _bart_summarize(sections[key], max_len=400, min_len=120)
+            source = sections[key]
+            break
     # Fallback: keyword-based sentence extraction
-    relevant = _filter_sentences(text, METHOD_KEYWORDS, nlp, top_n=20)
-    if len(relevant) > 100:
-        return _bart_summarize(relevant, max_len=400, min_len=120)
-    return "Methodology section could not be identified in this paper."
+    if not source:
+        relevant = _filter_sentences(text, METHOD_KEYWORDS, nlp, top_n=20)
+        if len(relevant) > 100:
+            source = relevant
+    if not source:
+        return "Methodology section could not be identified in this paper."
+
+    system = (
+        "You are a research assistant explaining technical methodologies clearly. "
+        "Make the method understandable, not just restate it."
+    )
+    user = (
+        "Explain the METHODOLOGY in 5-7 sentences. Include: the algorithm or "
+        "technique designed, how it works conceptually (use an analogy if helpful), "
+        "dataset used, and training setup (model size, GPU, batch size) if mentioned. "
+        "Write like you are explaining to a student, simplify complex ideas.\n\nPaper:\n{text}"
+    )
+    return _ollama_summarize(source, system, user)
 
 
 def extract_results(text: str, nlp) -> str:
-    """Extract and summarize results & discussion."""
+    """Extract and summarize results & discussion via Ollama."""
     sections = _detect_sections(text)
     combined = ""
     for key in ("results", "result", "discussion"):
         if key in sections:
             combined += " " + sections[key]
     if len(combined.strip()) > 100:
-        return _bart_summarize(combined.strip(), max_len=300, min_len=80)
-    relevant = _filter_sentences(text, RESULTS_KEYWORDS, nlp)
-    if len(relevant) > 100:
-        return _bart_summarize(relevant, max_len=300, min_len=80)
-    return "Results/Discussion section could not be identified in this paper."
+        source = combined.strip()
+    else:
+        relevant = _filter_sentences(text, RESULTS_KEYWORDS, nlp)
+        if len(relevant) > 100:
+            source = relevant
+        else:
+            return "Results/Discussion section could not be identified in this paper."
+
+    system = (
+        "You are a research assistant summarizing results accurately. "
+        "Always include specific numbers when available."
+    )
+    user = (
+        "Summarize the RESULTS in 4-5 sentences. Include: what the method achieved, "
+        "specific numbers or percentages, comparison to baselines, and any limitations "
+        "mentioned.\n\nPaper:\n{text}"
+    )
+    return _ollama_summarize(source, system, user)
 
 
 def extract_key_findings(text: str) -> list[str]:
-    """Top findings as bullet points using extractive summarization."""
+    """Top findings as a numbered list via Ollama, with LSA fallback."""
+    system = (
+        "You are a research assistant extracting key findings and explaining why they matter."
+    )
+    user = (
+        "Extract exactly 5 KEY FINDINGS. For each: write 2-3 sentences, "
+        "explain what was found AND why it matters, use plain language, "
+        "do not copy sentences from the paper. Format as:\n"
+        "1. [finding]\n2. [finding]\n3. [finding]\n4. [finding]\n5. [finding]\n\n"
+        "Paper:\n{text}"
+    )
+    raw = _ollama_summarize(text, system, user)
+
+    # Parse numbered lines
+    findings = []
+    for line in raw.splitlines():
+        line = line.strip()
+        m = re.match(r'^[1-5][.)]\s+(.+)', line)
+        if m:
+            findings.append(m.group(1).strip())
+
+    if len(findings) >= 2:
+        return findings
+
+    # Fallback: LSA extractive sentences
     parser = PlaintextParser.from_string(text, Tokenizer(LANG))
     stemmer = Stemmer(LANG)
     summarizer = LsaSummarizer(stemmer)
@@ -161,26 +208,24 @@ def extract_key_findings(text: str) -> list[str]:
 
 
 def generate_strengths_weaknesses(text: str) -> dict[str, str]:
-    """BART-generated strengths & weaknesses (with disclaimer)."""
-    prompt_text = (
-        "Analyze the following research paper text and identify its main "
-        "strengths and weaknesses:\n\n" + text[:3000]
+    """Ollama-generated strengths & weaknesses (with disclaimer)."""
+    system = "You are a critical but fair research reviewer."
+    user = (
+        "Write STRENGTHS (2-3 sentences): what is novel or impressive. "
+        "Then WEAKNESSES (2-3 sentences): limitations and unanswered questions. "
+        "Be specific.\n\nPaper:\n{text}"
     )
-    bart = _get_bart()
-    result = bart(prompt_text, max_length=250, min_length=60, do_sample=False)
-    generated = result[0]["summary_text"]
     return {
-        "analysis": generated,
+        "analysis": _ollama_summarize(text, system, user),
         "disclaimer": (
-            "This analysis was generated by an AI model (BART) and may not "
-            "fully capture the nuances of the paper. Please use it as a "
-            "starting point for your own critical assessment."
+            "Generated by local LLM (llama3.1:8b). "
+            "Use as a starting point for your own assessment."
         ),
     }
 
 
 def generate_future_scope(text: str) -> dict[str, str]:
-    """BART-generated future research directions (with disclaimer)."""
+    """Ollama-generated future research directions (with disclaimer)."""
     sections = _detect_sections(text)
     source = ""
     for key in ("conclusion", "conclusions", "summary", "future work", "discussion"):
@@ -189,14 +234,20 @@ def generate_future_scope(text: str) -> dict[str, str]:
     if len(source.strip()) < 100:
         source = text[-3000:]  # use end of paper as fallback
 
-    bart = _get_bart()
-    result = bart(source[:3500], max_length=200, min_length=50, do_sample=False)
-    generated = result[0]["summary_text"]
+    system = (
+        "You are a research assistant identifying future research directions "
+        "from paper conclusions."
+    )
+    user = (
+        "Suggest 3-4 future research directions in 4-5 sentences. "
+        "For each explain what could be explored and why it is valuable. "
+        "Write in plain English.\n\nPaper:\n{text}"
+    )
     return {
-        "analysis": generated,
+        "analysis": _ollama_summarize(source, system, user),
         "disclaimer": (
-            "These future research directions were generated by an AI model "
-            "(BART) and represent potential areas of exploration. They should "
-            "be validated against the actual paper content and domain expertise."
+            "Generated by local LLM (llama3.1:8b). "
+            "These directions should be validated against the actual paper content "
+            "and domain expertise."
         ),
     }
