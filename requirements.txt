@@ -5,10 +5,9 @@ Pillow
 spacy
 nltk
 sumy
-transformers
-torch
 scikit-learn
 fpdf2
 python-dotenv
 rouge-score
 sentence-transformers
+ollama

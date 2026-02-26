@@ -13,9 +13,8 @@ from sumy.utils import get_stop_words
 
 import ollama
 
-# Switch to fine-tuned model if available
 # Change to "research-analyzer-finetuned" after running fine_tune/
-OLLAMA_MODEL = "research-analyzer"  # or "research-analyzer-finetuned"
+OLLAMA_MODEL = "llama3.1:8b"  # or "research-analyzer-finetuned"
 
 LANG = "english"
 

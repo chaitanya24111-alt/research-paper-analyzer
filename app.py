@@ -62,13 +62,19 @@ def ensure_models():
         print("[models] Downloading NLTK stopwords...")
         nltk.download("stopwords", quiet=True)
 
-    # BART – just log whether it's cached; actual download happens on first use
-    from transformers import AutoTokenizer
+    # Ollama
     try:
-        AutoTokenizer.from_pretrained("facebook/bart-large-cnn", local_files_only=True)
-        print("[models] BART (facebook/bart-large-cnn): cached")
-    except Exception:
-        print("[models] BART model will be downloaded on first analysis (~1.6 GB).")
+        import ollama
+        response = ollama.list()
+        names = [m.model for m in response.models]
+        if any("llama3.1" in n for n in names):
+            print("[models] Ollama llama3.1:8b: ready")
+        else:
+            print("[models] WARNING: llama3.1:8b not found.")
+            print("[models] Run: ollama pull llama3.1:8b")
+    except Exception as e:
+        print(f"[models] WARNING: Ollama is not running ({e}).")
+        print("[models] Start it with: ollama serve")
 
     print("[models] All checks complete.\n")
 
