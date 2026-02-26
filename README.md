@@ -183,7 +183,7 @@ Set `PDF_PATH` in Cell 2 to any PDF on disk. The notebook produces three saved c
 | Web server | Flask | SSE streaming, file upload, PDF export |
 | PDF extraction | PyMuPDF, pytesseract | Text + OCR fallback |
 | Extractive summarization | sumy (LSA) | Fast, GPU-free sentence selection |
-| Abstractive summarization | Transformers (BART) | Fluent prose generation |
+| Abstractive summarization | Ollama (llama3.1:8b) | Local LLM summarization, fully offline |
 | Keyword extraction | scikit-learn (TF-IDF) | Statistical term weighting |
 | Named entity recognition | spaCy | Entity classification |
 | ROUGE evaluation | rouge-score | n-gram overlap metrics |
