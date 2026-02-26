@@ -1,5 +1,7 @@
 # Research Paper Analyzer
 
+[![GitHub](https://img.shields.io/badge/GitHub-research--paper--analyzer-181717?style=for-the-badge&logo=github)](https://github.com/chaitanya24111-alt/research-paper-analyzer)
+
 > A full-stack NLP application that extracts, summarizes, evaluates, and visualizes the content of academic PDF papers — entirely offline, with quantitative model comparison.
 
 ---
@@ -148,7 +150,7 @@ Key findings are encoded with `all-MiniLM-L6-v2` (80 MB, runs on CPU). Pairwise 
 ### Installation
 
 ```bash
-git clone https://github.com/yourusername/research-paper-analyzer.git
+git clone https://github.com/chaitanya24111-alt/research-paper-analyzer.git
 cd research-paper-analyzer
 pip install -r requirements.txt
 python -m spacy download en_core_web_sm
