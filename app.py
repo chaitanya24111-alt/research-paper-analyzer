@@ -62,16 +62,21 @@ def ensure_models():
         print("[models] Downloading NLTK stopwords...")
         nltk.download("stopwords", quiet=True)
 
-    # Gemini API key
-    import os
-    gemini_key = os.environ.get("GEMINI_API_KEY", "")
-    if gemini_key:
-        print("[models] Gemini API key: configured ✓")
-    else:
-        print("[models] WARNING: GEMINI_API_KEY not set. Set it as an environment variable.")
+    # Ollama
+    try:
+        import ollama
+        response = ollama.list()
+        names = [m.model for m in response.models]
+        if any("llama3.1" in n for n in names):
+            print("[models] Ollama llama3.1:8b: ready")
+        else:
+            print("[models] WARNING: llama3.1:8b not found.")
+            print("[models] Run: ollama pull llama3.1:8b")
+    except Exception as e:
+        print(f"[models] WARNING: Ollama is not running ({e}).")
+        print("[models] Start it with: ollama serve")
 
     print("[models] All checks complete.\n")
-
 
 
 # ---------------------------------------------------------------------------
@@ -141,7 +146,6 @@ def analyze():
 
 
 @app.route("/api/export", methods=["POST"])
-
 def export_pdf():
     global _current_results
     if not _current_results:

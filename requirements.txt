@@ -1,6 +1,6 @@
 flask
-gunicorn
 PyMuPDF
+pytesseract
 Pillow
 spacy
 nltk
@@ -10,4 +10,4 @@ fpdf2
 python-dotenv
 rouge-score
 sentence-transformers
-google-generativeai
+ollama
