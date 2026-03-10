@@ -1,7 +1,8 @@
-"""Summarization: extractive (sumy LSA) + abstractive (Ollama llama3.1:8b)."""
+"""Summarization: extractive (sumy LSA) + abstractive (Google Gemini API)."""
 
 from __future__ import annotations
 
+import os
 import re
 from typing import Optional
 
@@ -11,18 +12,21 @@ from sumy.summarizers.lsa import LsaSummarizer
 from sumy.nlp.stemmers import Stemmer
 from sumy.utils import get_stop_words
 
-import ollama
+import google.generativeai as genai
 
-# Change to "research-analyzer-finetuned" after running fine_tune/
-OLLAMA_MODEL = "llama3.1:8b"  # or "research-analyzer-finetuned"
+# Configure Gemini API key from environment variable
+_GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+if _GEMINI_API_KEY:
+    genai.configure(api_key=_GEMINI_API_KEY)
 
+GEMINI_MODEL = "gemini-1.5-flash"   # Free tier: 1500 req/day, 1M tokens/min
 LANG = "english"
 
 METHOD_KEYWORDS = [
     "method", "methodology", "approach", "experiment", "experimental",
     "dataset", "data set", "participants", "sample", "procedure",
     "protocol", "technique", "algorithm", "framework", "implementation",
-    "setup", "setup", "design", "measure", "instrument", "survey",
+    "setup", "design", "measure", "instrument", "survey",
     "questionnaire", "interview", "analysis", "statistical",
 ]
 
@@ -43,26 +47,33 @@ SECTION_HEADERS = re.compile(
 )
 
 
-def _ollama_summarize(text: str, system_prompt: str, user_prompt: str) -> str:
-    """Call Ollama chat API with the given system and user prompts."""
+def _gemini_summarize(text: str, system_prompt: str, user_prompt: str) -> str:
+    """Call Gemini API with the given prompts."""
+    if not _GEMINI_API_KEY:
+        return (
+            "[Gemini API key not configured. "
+            "Set GEMINI_API_KEY environment variable.]"
+        )
+
     words = text.split()
     truncated = " ".join(words[:3000])
+
     try:
-        response = ollama.chat(
-            model=OLLAMA_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user",   "content": user_prompt.format(text=truncated)},
-            ],
-            options={"temperature": 0.3, "top_p": 0.9, "num_predict": 600},
+        model = genai.GenerativeModel(
+            model_name=GEMINI_MODEL,
+            system_instruction=system_prompt,
         )
-        return response["message"]["content"].strip()
+        response = model.generate_content(
+            user_prompt.format(text=truncated),
+            generation_config=genai.GenerationConfig(
+                temperature=0.3,
+                top_p=0.9,
+                max_output_tokens=600,
+            ),
+        )
+        return response.text.strip()
     except Exception as e:
-        return (
-            f"[Ollama error: {e}. "
-            "Ensure Ollama is running (ollama serve) and "
-            "llama3.1:8b is pulled (ollama pull llama3.1:8b).]"
-        )
+        return f"[Gemini error: {e}]"
 
 
 def extractive_summary(text: str, sentence_count: int = 10) -> str:
@@ -89,7 +100,7 @@ def _detect_sections(text: str) -> dict[str, str]:
 
 def _filter_sentences(text: str, keywords: list[str], nlp, top_n: int = 15) -> str:
     """Return sentences that contain at least one keyword."""
-    doc = nlp(text[:100000])  # limit for spaCy
+    doc = nlp(text[:100000])
     matched = []
     kw_set = {k.lower() for k in keywords}
     for sent in doc.sents:
@@ -100,7 +111,7 @@ def _filter_sentences(text: str, keywords: list[str], nlp, top_n: int = 15) -> s
 
 
 def generate_summary(text: str) -> str:
-    """Main paper summary via Ollama (llama3.1:8b)."""
+    """Main paper summary via Gemini."""
     system = (
         "You are a research assistant writing clear summaries for CS students. "
         "Write in complete sentences, never bullet points."
@@ -111,19 +122,17 @@ def generate_summary(text: str) -> str:
         "with numbers if available. Use plain English and briefly explain "
         "any technical terms.\n\nPaper:\n{text}"
     )
-    return _ollama_summarize(text, system, user)
+    return _gemini_summarize(text, system, user)
 
 
 def extract_methodology(text: str, nlp) -> str:
-    """Extract and summarize methodology section via Ollama."""
+    """Extract and summarize methodology section via Gemini."""
     sections = _detect_sections(text)
-    # Try explicit methodology section first
     source = ""
     for key in ("methodology", "methods", "method", "experimental", "experiments"):
         if key in sections and len(sections[key]) > 100:
             source = sections[key]
             break
-    # Fallback: keyword-based sentence extraction
     if not source:
         relevant = _filter_sentences(text, METHOD_KEYWORDS, nlp, top_n=20)
         if len(relevant) > 100:
@@ -141,11 +150,11 @@ def extract_methodology(text: str, nlp) -> str:
         "dataset used, and training setup (model size, GPU, batch size) if mentioned. "
         "Write like you are explaining to a student, simplify complex ideas.\n\nPaper:\n{text}"
     )
-    return _ollama_summarize(source, system, user)
+    return _gemini_summarize(source, system, user)
 
 
 def extract_results(text: str, nlp) -> str:
-    """Extract and summarize results & discussion via Ollama."""
+    """Extract and summarize results & discussion via Gemini."""
     sections = _detect_sections(text)
     combined = ""
     for key in ("results", "result", "discussion"):
@@ -169,11 +178,11 @@ def extract_results(text: str, nlp) -> str:
         "specific numbers or percentages, comparison to baselines, and any limitations "
         "mentioned.\n\nPaper:\n{text}"
     )
-    return _ollama_summarize(source, system, user)
+    return _gemini_summarize(source, system, user)
 
 
 def extract_key_findings(text: str) -> list[str]:
-    """Top findings as a numbered list via Ollama, with LSA fallback."""
+    """Top findings as a numbered list via Gemini, with LSA fallback."""
     system = (
         "You are a research assistant extracting key findings and explaining why they matter."
     )
@@ -184,9 +193,8 @@ def extract_key_findings(text: str) -> list[str]:
         "1. [finding]\n2. [finding]\n3. [finding]\n4. [finding]\n5. [finding]\n\n"
         "Paper:\n{text}"
     )
-    raw = _ollama_summarize(text, system, user)
+    raw = _gemini_summarize(text, system, user)
 
-    # Parse numbered lines
     findings = []
     for line in raw.splitlines():
         line = line.strip()
@@ -207,7 +215,7 @@ def extract_key_findings(text: str) -> list[str]:
 
 
 def generate_strengths_weaknesses(text: str) -> dict[str, str]:
-    """Ollama-generated strengths & weaknesses (with disclaimer)."""
+    """Gemini-generated strengths & weaknesses (with disclaimer)."""
     system = "You are a critical but fair research reviewer."
     user = (
         "Write STRENGTHS (2-3 sentences): what is novel or impressive. "
@@ -215,23 +223,23 @@ def generate_strengths_weaknesses(text: str) -> dict[str, str]:
         "Be specific.\n\nPaper:\n{text}"
     )
     return {
-        "analysis": _ollama_summarize(text, system, user),
+        "analysis": _gemini_summarize(text, system, user),
         "disclaimer": (
-            "Generated by local LLM (llama3.1:8b). "
+            "Generated by Gemini 1.5 Flash. "
             "Use as a starting point for your own assessment."
         ),
     }
 
 
 def generate_future_scope(text: str) -> dict[str, str]:
-    """Ollama-generated future research directions (with disclaimer)."""
+    """Gemini-generated future research directions (with disclaimer)."""
     sections = _detect_sections(text)
     source = ""
     for key in ("conclusion", "conclusions", "summary", "future work", "discussion"):
         if key in sections:
             source += " " + sections[key]
     if len(source.strip()) < 100:
-        source = text[-3000:]  # use end of paper as fallback
+        source = text[-3000:]
 
     system = (
         "You are a research assistant identifying future research directions "
@@ -243,9 +251,9 @@ def generate_future_scope(text: str) -> dict[str, str]:
         "Write in plain English.\n\nPaper:\n{text}"
     )
     return {
-        "analysis": _ollama_summarize(source, system, user),
+        "analysis": _gemini_summarize(source, system, user),
         "disclaimer": (
-            "Generated by local LLM (llama3.1:8b). "
+            "Generated by Gemini 1.5 Flash. "
             "These directions should be validated against the actual paper content "
             "and domain expertise."
         ),
